@@ -17,18 +17,21 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  next();
+});
+
+const allowedOrigins = [
+  'https://evento-app.netlify.app',
+  // Add other allowed origins if needed
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:3003',
-    'http://localhost:3004',
-    'http://localhost:3005',
-    'http://localhost:3006',
-    'https://aariz0012.netlify.app' // add your deployed frontend URL if you have one
-  ],
-  credentials: true
+  origin: allowedOrigins,
+  credentials: true, // if you use cookies or authentication
 }));
 
 // Serve static files from the uploads directory
