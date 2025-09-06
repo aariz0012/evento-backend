@@ -26,6 +26,7 @@ app.use((req, res, next) => {
 
 const allowedOrigins = [
   'https://evento-app.netlify.app',
+  'https://localhost:3000'
   // Add other allowed origins if needed
 ];
 
