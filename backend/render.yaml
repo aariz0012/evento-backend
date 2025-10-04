@@ -14,7 +14,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRE
-        value: 30d
+        value: "30d"
       - key: EMAIL_SERVICE
         sync: false
       - key: EMAIL_USERNAME
