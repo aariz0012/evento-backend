@@ -7,7 +7,9 @@ const {
   uploadVenueImages,
   uploadVenueVideos,
   uploadDocuments,
-  deleteVenue
+  deleteVenue,
+  toggleVenueStatus,
+  updateVenueApproval
 } = require('../controllers/venues');
 
 const { protect, authorize } = require('../middleware/auth');
@@ -25,5 +27,20 @@ router.put('/:id/images', protect, authorize('host'), uploadVenueImages);
 router.put('/:id/videos', protect, authorize('host'), uploadVenueVideos);
 router.put('/:id/documents', protect, authorize('host'), uploadDocuments);
 router.delete('/:id', protect, authorize('host', 'admin'), deleteVenue);
+
+// Admin routes for venue management
+router.put(
+  '/:id/status', 
+  protect, 
+  authorize('admin'), 
+  toggleVenueStatus
+);
+
+router.put(
+  '/:id/approval', 
+  protect, 
+  authorize('admin'), 
+  updateVenueApproval
+);
 
 module.exports = router;
