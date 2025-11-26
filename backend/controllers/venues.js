@@ -228,7 +228,6 @@ exports.updateVenue = async (req, res) => {
 // @access  Private (Venue owner only)
 exports.uploadVenueImages = async (req, res) => {
   try {
-
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, error: 'No files uploaded' });
     }
