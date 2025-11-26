@@ -50,6 +50,14 @@ const HostSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide your ZIP/Postal code']
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isApproved: {
+    type: Boolean,
+    default: false
+  },
   isVerified: {
     type: Boolean,
     default: false
