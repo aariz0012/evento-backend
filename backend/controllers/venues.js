@@ -474,3 +474,68 @@ exports.deleteVenue = async (req, res) => {
     });
   }
 };
+
+// Add these controller functions if they don't exist
+exports.toggleVenueStatus = async (req, res) => {
+  try {
+    const venue = await Host.findOne({ 'venues._id': req.params.id });
+    
+    if (!venue) {
+      return res.status(404).json({ success: false, error: 'Venue not found' });
+    }
+
+    const venueToUpdate = venue.venues.id(req.params.id);
+    venueToUpdate.isActive = !venueToUpdate.isActive;
+    
+    await venue.save();
+    
+    res.status(200).json({
+      success: true,
+      data: venueToUpdate
+    });
+  } catch (err) {
+    console.error('Error toggling venue status:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error' 
+    });
+  }
+};
+
+exports.updateVenueApproval = async (req, res) => {
+  try {
+    const { isApproved } = req.body;
+    
+    if (typeof isApproved !== 'boolean') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'isApproved must be a boolean' 
+      });
+    }
+
+    const venue = await Host.findOne({ 'venues._id': req.params.id });
+    
+    if (!venue) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Venue not found' 
+      });
+    }
+
+    const venueToUpdate = venue.venues.id(req.params.id);
+    venueToUpdate.isApproved = isApproved;
+    
+    await venue.save();
+    
+    res.status(200).json({
+      success: true,
+      data: venueToUpdate
+    });
+  } catch (err) {
+    console.error('Error updating venue approval:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error' 
+    });
+  }
+};
