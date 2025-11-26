@@ -228,7 +228,17 @@ exports.updateVenue = async (req, res) => {
 // @access  Private (Venue owner only)
 exports.uploadVenueImages = async (req, res) => {
   try {
-    const venue = await Host.findById(req.params.id);
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ success: false, error: 'No files uploaded' });
+    }
+
+    const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+
+    const venue = await Host.findByIdAndUpdate(req.params.id,
+    {$push: {images: {$each: fileUrls}}},
+    {new: true, runValidators: true}
+    );
     
     if (!venue || venue.hostType !== 'venue') {
       return res.status(404).json({
@@ -294,7 +304,17 @@ exports.uploadVenueImages = async (req, res) => {
 // @access  Private (Venue owner only)
 exports.uploadVenueVideos = async (req, res) => {
   try {
-    const venue = await Host.findById(req.params.id);
+
+     if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ success: false, error: 'No files uploaded' });
+    }
+
+    const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+
+    const venue = await Host.findByIdAndUpdate(req.params.id,
+    {$push: {videos: {$each: fileUrls}}},
+    {new: true, runValidators: true}
+    );
     
     if (!venue || venue.hostType !== 'venue') {
       return res.status(404).json({
@@ -455,4 +475,3 @@ exports.deleteVenue = async (req, res) => {
     });
   }
 };
-
