@@ -10,6 +10,19 @@ exports.getVenues = async (req, res) => {
     // Build query
     let query = { hostType: 'venue' };
     
+    // For non-admin users, only show active and approved venues
+    if (!req.user || !req.user.isAdmin) {
+      query.isActive = true;
+      query.isApproved = true;
+    }
+    
+    // For hosts viewing their own venues, show all their venues regardless of status
+    if (req.user && req.user.isHost && req.query.myVenues === 'true') {
+      query._id = req.user.id;
+      delete query.isActive;
+      delete query.isApproved;
+    }
+    
     // Filter by venue type
     if (req.query.venueType) {
       query.venueType = req.query.venueType;
@@ -442,3 +455,4 @@ exports.deleteVenue = async (req, res) => {
     });
   }
 };
+
