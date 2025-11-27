@@ -72,9 +72,14 @@ app.get('/health', (req, res) => {
 
 // Root route
 app.get('/', (req, res) => {
-  res.send('EventO API is running');
+  res.json({
+    success: true,
+    message: 'Welcome to Venuity API',
+    documentation: 'https://github.com/aariz0012/venuity-backend#readme',
+    status: 'operational',
+    timestamp: new Date().toISOString()
+  });
 });
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', {
@@ -169,7 +174,7 @@ process.on('uncaughtException', (err) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
