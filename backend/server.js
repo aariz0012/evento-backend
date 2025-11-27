@@ -27,25 +27,29 @@ app.use((req, res, next) => {
 
 // CORS configuration
 const allowedOrigins = [
-  'https://evento-app.netlify.app',
-  'https://localhost:3000',
-  'http://localhost:3000'
+  'https://venuity.netlify.app',
+  'https://localhost:3001',
+  'http://localhost:3001'
 ];
 
 const corsOptions = {
-  origin: function (origin, callback) {
+   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     } else {
-      const msg = `CORS policy blocked: ${origin}`;
+      const msg = `The CORS policy does not allow access from ${origin}`;
       console.error(msg);
       return callback(new Error(msg), false);
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],  // Added PUT method
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  preflightContinue: false,
+  maxAge: 600  // Fixed property name (was maxage)
 };
 
 app.use(cors(corsOptions));
@@ -90,21 +94,60 @@ app.use((err, req, res, next) => {
 });
 
 // Connect to MongoDB
+// Connect to MongoDB with enhanced error handling
 const connectDB = async () => {
   try {
+    console.log('Attempting to connect to MongoDB...');
+    console.log('Connection string:', process.env.MONGODB_URI ? 'Found' : 'Not found');
+    
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000
+      serverSelectionTimeoutMS: 5000, // 5 seconds timeout
+      socketTimeoutMS: 45000, // 45 seconds socket timeout
     });
-    console.log('MongoDB connected successfully');
+    
+    console.log('✅ MongoDB Connected Successfully');
+    
+    // Start server
+    const PORT = process.env.PORT || 8080;
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('Server error:', error);
+      process.exit(1);
+    });
+    
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    process.exit(1);
+    console.error('❌ MongoDB Connection Error:', {
+      name: err.name,
+      message: err.message,
+      code: err.code,
+      codeName: err.codeName,
+      errorLabels: err.errorLabels,
+      stack: err.stack
+    });
+    
+    // Retry connection after 5 seconds
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectDB, 5000);
   }
 };
 
+// Handle MongoDB connection events
+mongoose.connection.on('error', err => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
+
+// Start the connection
 connectDB();
 
 // Handle unhandled promise rejections
