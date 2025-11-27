@@ -29,7 +29,7 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   'https://venuity.netlify.app',
   'https://localhost:3001',
-  'https://localhost:3000',
+  'https://localhost:3000'
 ];
 
 const corsOptions = {
