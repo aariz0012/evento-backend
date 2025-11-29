@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const net = require('net'); // 👈 used to check port availability
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -33,8 +34,7 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
@@ -45,11 +45,11 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],  // Added PUT method
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200,
   preflightContinue: false,
-  maxAge: 600  // Fixed property name (was maxage)
+  maxAge: 600
 };
 
 app.use(cors(corsOptions));
@@ -80,6 +80,7 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', {
@@ -91,53 +92,29 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     success: false,
-    error: process.env.NODE_ENV === 'development' 
-      ? err.message 
-      : 'Something went wrong',
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
 // Connect to MongoDB
-// Connect to MongoDB with enhanced error handling
 const connectDB = async () => {
   try {
     console.log('Attempting to connect to MongoDB...');
     console.log('Connection string:', process.env.MONGODB_URI ? 'Found' : 'Not found');
-    
+
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000, // 5 seconds timeout
-      socketTimeoutMS: 45000, // 45 seconds socket timeout
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
-    
+
     console.log('✅ MongoDB Connected Successfully');
-    
-    // Start server
-    const PORT = process.env.PORT || 8080;
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
-    
-    // Handle server errors
-    server.on('error', (error) => {
-      console.error('Server error:', error);
-      process.exit(1);
-    });
-    
+    startServer(); // 👈 only start server after DB connects
+
   } catch (err) {
-    console.error('❌ MongoDB Connection Error:', {
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      codeName: err.codeName,
-      errorLabels: err.errorLabels,
-      stack: err.stack
-    });
-    
-    // Retry connection after 5 seconds
+    console.error('❌ MongoDB Connection Error:', err);
     console.log('Retrying connection in 5 seconds...');
     setTimeout(connectDB, 5000);
   }
@@ -155,53 +132,36 @@ mongoose.connection.on('disconnected', () => {
 // Start the connection
 connectDB();
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', {
-    error: err.message,
-    stack: err.stack
-  });
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', {
-    error: err.message,
-    stack: err.stack
-  });
-  process.exit(1);
-});
-
-// Start server
-const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// Handle server errors
-server.on('error', (error) => {
-  if (error.syscall !== 'listen') {
-    throw error;
-  }
-
-  switch (error.code) {
-    case 'EACCES':
-      console.error(`Port ${PORT} requires elevated privileges`);
-      process.exit(1);
-    case 'EADDRINUSE':
-      console.error(`Port ${PORT} is already in use`);
-      process.exit(1);
-    default:
-      throw error;
-  }
-});
-
-// Handle graceful shutdown
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
-  });
+  if (server) {
+    server.close(() => {
+      console.log('Process terminated');
+      process.exit(0);
+    });
+  }
 });
+
+// === Server startup with port check ===
+let server;
+const PORT = process.env.PORT || 8080;
+
+function startServer() {
+  // Check if port is free before starting
+  const tester = net.createServer()
+    .once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Please stop the other process or use a different port.`);
+        process.exit(1);
+      }
+    })
+    .once('listening', () => {
+      tester.close();
+      server = app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      });
+    })
+    .listen(PORT);
+}
