@@ -29,12 +29,13 @@ app.use((req, res, next) => {
 // CORS configuration
 const allowedOrigins = [
   'https://venuity.netlify.app',
-  'https://localhost:3001',
-  'https://localhost:3000'
+  'http://localhost:3000',   // ✅ corrected
+  'http://localhost:3001'    // ✅ corrected
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
@@ -52,7 +53,11 @@ const corsOptions = {
   maxAge: 600
 };
 
+// Apply CORS before routes
 app.use(cors(corsOptions));
+
+// Explicitly handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
