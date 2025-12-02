@@ -2,49 +2,49 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Host = require('../models/Host');
 
-// Protect routes
-exports.protect = async (req, res, next) => {
-  let token;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    // Set token from Bearer token in header
-    token = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies && req.cookies.token) {
-    // Set token from cookie
-    token = req.cookies.token;
-  }
-
-  // Make sure token exists
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      error: 'Not authorized to access this route'
-    });
-  }
-
+// Protect routes middleware
+const auth = async (req, res, next) => {
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Get token from Authorization header
+    const token = req.header('Authorization')?.replace('Bearer ', '');
 
+    // Or from cookies if you want to support cookie-based auth
+    const cookieToken = req.cookies?.token;
+    const finalToken = token || cookieToken;
+
+    if (!finalToken) {
+      return res.status(401).json({ message: 'No token, authorization denied' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(finalToken, process.env.JWT_SECRET);
+
+    // Attach user or host depending on payload
     if (decoded.isHost) {
-      req.host = await Host.findById(decoded.id);
+      const host = await Host.findById(decoded.id);
+      if (!host) {
+        return res.status(401).json({ message: 'Host not found' });
+      }
+      req.host = host;
       req.isHost = true;
     } else {
-      req.user = await User.findById(decoded.id);
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+      req.user = user;
       req.isHost = false;
     }
 
     next();
-  } catch (err) {
-    return res.status(401).json({
-      success: false,
-      error: 'Not authorized to access this route'
-    });
+  } catch (error) {
+    console.error('Auth middleware error:', error.message);
+    res.status(401).json({ message: 'Token is not valid' });
   }
 };
+
+module.exports = auth;
 
 // Grant access to specific roles
 exports.authorize = (...roles) => {
