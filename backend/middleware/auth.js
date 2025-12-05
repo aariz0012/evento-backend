@@ -58,3 +58,23 @@ exports.protect = async (req, res, next) => {
     });
   }
 };
+exports.authorize = (...roles) => {
+  return (req, res, next) => {
+    if (req.isHost) {
+      if (!roles.includes('host')) {
+        return res.status(403).json({
+          success: false,
+          error: `Host role is not authorized to access this route`
+        });
+      }
+    } else {
+      if (!roles.includes('user')) {  // Changed from req.user.role to 'user' since we're not using roles
+        return res.status(403).json({
+          success: false,
+          error: `User is not authorized to access this route`
+        });
+      }
+    }
+    next();
+  };
+};
