@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const notificationSchema = new mongoose.Schema({
+const NotificationSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -34,6 +34,6 @@ const notificationSchema = new mongoose.Schema({
 });
 
 // Add indexes for better query performance
-notificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
+NotificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+module.exports = mongoose.model('Notification', NotificationSchema);
