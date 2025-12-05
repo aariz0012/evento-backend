@@ -1,5 +1,5 @@
 const Notification = require('../models/Notification');
-const user = require('../models/User');
+const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
 // @desc    Get all notifications for logged in user
