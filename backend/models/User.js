@@ -52,6 +52,11 @@ const UserSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  notificationSettings: {
+    bookingRequests: { type: Boolean, default: true },
+    bookingStatus: { type: Boolean, default: true },
+    newReviews: { type: Boolean, default: true }
   }
 });
 
