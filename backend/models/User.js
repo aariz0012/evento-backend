@@ -54,10 +54,17 @@ const UserSchema = new mongoose.Schema({
     default: Date.now
   },
   notificationSettings: {
-    bookingRequests: { type: Boolean, default: true },
-    bookingStatus: { type: Boolean, default: true },
-    newReviews: { type: Boolean, default: true }
+  email: {
+    bookingUpdates: { type: Boolean, default: true },
+    messages: { type: Boolean, default: true },
+    promotions: { type: Boolean, default: true }
+  },
+  push: {
+    bookingUpdates: { type: Boolean, default: true },
+    messages: { type: Boolean, default: true },
+    promotions: { type: Boolean, default: true }
   }
+}
 });
 
 // Encrypt password using bcrypt
