@@ -12,7 +12,7 @@ const venueRoutes = require('./routes/venues');
 const bookingRoutes = require('./routes/bookings');
 const serviceRoutes = require('./routes/services');
 const paymentRoutes = require('./routes/payments');
-
+const notificationRoutes = require('./routes/notifications');
 // Initialize express app
 const app = express();
 
@@ -69,7 +69,7 @@ app.use('/api/venues', venueRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/payments', paymentRoutes);
-
+app.use('/api/notifications', notificationRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
