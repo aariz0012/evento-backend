@@ -1,4 +1,4 @@
-const Notification = require('../models/Notification');
+const notification = require('../models/Notification');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
