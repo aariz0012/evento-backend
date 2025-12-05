@@ -1,120 +1,66 @@
-// backend/controllers/notifications.js
 const Notification = require('../models/Notification');
-const User = require('../models/User');
+const { protect } = require('../middleware/auth');
 
-// @desc    Get all notifications for the authenticated user
+// @desc    Get all notifications for logged in user
 // @route   GET /api/notifications
 // @access  Private
-exports.getNotifications = async (req, res) => {
+exports.getNotifications = async (req, res, next) => {
   try {
-    const notifications = await Notification.find({ userId: req.user.id })
-      .sort({ createdAt: -1 })
-      .limit(50);
-
-    res.status(200).json({
-      success: true,
-      count: notifications.length,
-      data: notifications
-    });
+    const notifications = await Notification.find({ user: req.user.id })
+      .sort({ createdAt: -1 });
+    res.status(200).json(notifications);
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    next(error);
   }
 };
 
 // @desc    Update notification settings
 // @route   PUT /api/notifications/settings
 // @access  Private
-exports.updateNotificationSettings = async (req, res) => {
+exports.updateNotificationSettings = async (req, res, next) => {
   try {
     const { settings } = req.body;
-    
-    // Validate required fields
-    if (!settings || typeof settings !== 'object') {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide valid notification settings'
-      });
-    }
-
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { notificationSettings: settings },
       { new: true, runValidators: true }
-    ).select('notificationSettings');
-
-    res.status(200).json({
-      success: true,
-      data: user.notificationSettings
-    });
+    );
+    res.status(200).json({ success: true, data: user.notificationSettings });
   } catch (error) {
-    console.error('Error updating notification settings:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    next(error);
   }
 };
 
 // @desc    Mark notification as read
 // @route   PATCH /api/notifications/:id/read
 // @access  Private
-exports.markAsRead = async (req, res) => {
+exports.markAsRead = async (req, res, next) => {
   try {
-    const notification = await Notification.findOneAndUpdate(
-      { 
-        _id: req.params.id, 
-        userId: req.user.id 
-      },
-      { read: true },
+    const notification = await Notification.findByIdAndUpdate(
+      req.params.id,
+      { isRead: true },
       { new: true }
     );
-
     if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
-
-    res.status(200).json({
-      success: true,
-      data: notification
-    });
+    res.status(200).json({ success: true, data: notification });
   } catch (error) {
-    console.error('Error marking notification as read:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    next(error);
   }
 };
 
 // @desc    Mark all notifications as read
 // @route   PATCH /api/notifications/mark-all-read
 // @access  Private
-exports.markAllAsRead = async (req, res) => {
+exports.markAllAsRead = async (req, res, next) => {
   try {
     await Notification.updateMany(
-      { 
-        userId: req.user.id, 
-        read: false 
-      },
-      { $set: { read: true } }
+      { user: req.user.id, isRead: false },
+      { $set: { isRead: true } }
     );
-
-    res.status(200).json({
-      success: true,
-      message: 'All notifications marked as read'
-    });
+    res.status(200).json({ success: true, message: 'All notifications marked as read' });
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    next(error);
   }
 };
