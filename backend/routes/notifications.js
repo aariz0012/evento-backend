@@ -4,6 +4,7 @@ const {
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  deleteAllNotifications,
   getNotificationSettings,
   updateNotificationSettings
 } = require('../controllers/notifications');
@@ -23,6 +24,9 @@ router.patch('/:id/read', authorize('user'), markAsRead);
 
 // Mark all notifications as read
 router.patch('/read-all', authorize('user'), markAllAsRead);
+
+// Delete all notifications (must come before /:id route)
+router.delete('/', authorize('user'), deleteAllNotifications);
 
 // Delete notification
 router.delete('/:id', authorize('user'), deleteNotification);
