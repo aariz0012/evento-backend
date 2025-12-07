@@ -8,7 +8,7 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['booking', 'message', 'system', 'promotion'],
+    enum: ['booking', 'status', 'review', 'payment', 'general'],
     required: true
   },
   title: {
@@ -19,21 +19,24 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  isRead: {
+  read: {
     type: Boolean,
     default: false
   },
   link: {
-    type: String
+    type: String,
+    default: null
   },
   metadata: {
-    type: Object
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
 });
 
-// Add indexes for better query performance
-NotificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
-
 module.exports = mongoose.model('Notification', NotificationSchema);
+
+
