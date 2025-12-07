@@ -1,35 +1,37 @@
-// backend/routes/notifications.js
 const express = require('express');
-const router = express.Router();
-const { protect } = require('../middleware/auth');
 const {
   getNotifications,
-  updateNotificationSettings,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  deleteNotification,
+  getNotificationSettings,
+  updateNotificationSettings
 } = require('../controllers/notifications');
 
-// All routes are protected and require authentication
+const { protect, authorize } = require('../middleware/auth');
+
+const router = express.Router();
+
+// All routes are protected
 router.use(protect);
 
-// @route   GET /api/notifications
-// @desc    Get all notifications for the current user
-// @access  Private
-router.get('/', getNotifications);
+// Get all notifications for current user
+router.get('/', authorize('user'), getNotifications);
 
-// @route   PUT /api/notifications/settings
-// @desc    Update notification settings
-// @access  Private
-router.put('/settings', updateNotificationSettings);
+// Mark notification as read
+router.patch('/:id/read', authorize('user'), markAsRead);
 
-// @route   PATCH /api/notifications/:id/read
-// @desc    Mark a notification as read
-// @access  Private
-router.patch('/:id/read', markAsRead);
+// Mark all notifications as read
+router.patch('/read-all', authorize('user'), markAllAsRead);
 
-// @route   PATCH /api/notifications/mark-all-read
-// @desc    Mark all notifications as read
-// @access  Private
-router.patch('/mark-all-read', markAllAsRead);
+// Delete notification
+router.delete('/:id', authorize('user'), deleteNotification);
+
+// Get notification settings
+router.get('/settings', authorize('user'), getNotificationSettings);
+
+// Update notification settings
+router.put('/settings', authorize('user'), updateNotificationSettings);
 
 module.exports = router;
+
