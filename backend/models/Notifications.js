@@ -8,7 +8,31 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['booking', 'status', 'review', 'payment', 'general'],
+    enum: [
+      'booking', 
+      'status', 
+      'review', 
+      'payment', 
+      'payment_received',
+      'payment_failed',
+      'refund_processed',
+      'subscription_renewal',
+      'booking_reminder',
+      'checkin_reminder',
+      'checkout_reminder',
+      'booking_confirmation',
+      'password_change',
+      'new_device_login',
+      'security_alert',
+      'promotional',
+      'special_offer',
+      'venue_match',
+      'seasonal_promotion',
+      'venue_policy_change',
+      'new_amenity',
+      'maintenance',
+      'general'
+    ],
     required: true
   },
   title: {
@@ -38,5 +62,4 @@ const NotificationSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);
-
 
