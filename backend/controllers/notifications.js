@@ -145,38 +145,57 @@ exports.deleteNotification = async (req, res) => {
 // @access  Private
 exports.getNotificationSettings = async (req, res) => {
   try {
-    // Return default settings for all notification types
-    // In the future, this could be stored in user profile
+    const User = require('../models/User');
+    
+    // Get user with notification settings
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
+    // Default settings
+    const defaultSettings = {
+      // Payment Notifications
+      paymentReceived: true,
+      paymentFailed: true,
+      refundProcessed: true,
+      subscriptionRenewal: true,
+      // Booking Reminders
+      upcomingBooking: true,
+      checkinReminder: true,
+      checkoutReminder: true,
+      bookingConfirmation: true,
+      bookingRequests: true,
+      bookingStatus: true,
+      // Account & Security
+      passwordChange: true,
+      newDeviceLogin: true,
+      securityAlerts: true,
+      // Promotional
+      specialOffers: true,
+      venueMatches: true,
+      seasonalPromotions: true,
+      // Venue Updates
+      venuePolicyChanges: true,
+      newAmenities: true,
+      maintenanceNotifications: true,
+      // Reviews
+      newReviews: true
+    };
+    
+    // Merge user settings with defaults (user settings take precedence)
+    const settings = {
+      ...defaultSettings,
+      ...(user.notificationSettings || {})
+    };
+    
     res.status(200).json({
       success: true,
-      data: {
-        // Payment Notifications
-        paymentReceived: true,
-        paymentFailed: true,
-        refundProcessed: true,
-        subscriptionRenewal: true,
-        // Booking Reminders
-        upcomingBooking: true,
-        checkinReminder: true,
-        checkoutReminder: true,
-        bookingConfirmation: true,
-        bookingRequests: true,
-        bookingStatus: true,
-        // Account & Security
-        passwordChange: true,
-        newDeviceLogin: true,
-        securityAlerts: true,
-        // Promotional
-        specialOffers: true,
-        venueMatches: true,
-        seasonalPromotions: true,
-        // Venue Updates
-        venuePolicyChanges: true,
-        newAmenities: true,
-        maintenanceNotifications: true,
-        // Reviews
-        newReviews: true
-      }
+      data: settings
     });
   } catch (err) {
     console.error('Error fetching notification settings:', err);
@@ -192,12 +211,36 @@ exports.getNotificationSettings = async (req, res) => {
 // @access  Private
 exports.updateNotificationSettings = async (req, res) => {
   try {
-    // For now, just return success
-    // In the future, this could be stored in user profile
+    const User = require('../models/User');
+    
+    if (!req.body.settings) {
+      return res.status(400).json({
+        success: false,
+        error: 'Settings are required'
+      });
+    }
+    
+    // Update user's notification settings
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { notificationSettings: req.body.settings },
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
     res.status(200).json({
       success: true,
-      message: 'Notification settings updated',
-      data: req.body.settings
+      message: 'Notification settings updated successfully',
+      data: user.notificationSettings
     });
   } catch (err) {
     console.error('Error updating notification settings:', err);
