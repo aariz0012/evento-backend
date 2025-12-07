@@ -83,6 +83,26 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
+// @desc    Delete all notifications
+// @route   DELETE /api/notifications
+// @access  Private
+exports.deleteAllNotifications = async (req, res) => {
+  try {
+    await Notification.deleteMany({ user: req.user.id });
+
+    res.status(200).json({
+      success: true,
+      message: 'All notifications deleted'
+    });
+  } catch (err) {
+    console.error('Error deleting all notifications:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};
+
 // @desc    Delete notification
 // @route   DELETE /api/notifications/:id
 // @access  Private
@@ -125,15 +145,37 @@ exports.deleteNotification = async (req, res) => {
 // @access  Private
 exports.getNotificationSettings = async (req, res) => {
   try {
-    // For now, return default settings
+    // Return default settings for all notification types
     // In the future, this could be stored in user profile
     res.status(200).json({
       success: true,
       data: {
+        // Payment Notifications
+        paymentReceived: true,
+        paymentFailed: true,
+        refundProcessed: true,
+        subscriptionRenewal: true,
+        // Booking Reminders
+        upcomingBooking: true,
+        checkinReminder: true,
+        checkoutReminder: true,
+        bookingConfirmation: true,
         bookingRequests: true,
         bookingStatus: true,
-        newReviews: true,
-        payments: true
+        // Account & Security
+        passwordChange: true,
+        newDeviceLogin: true,
+        securityAlerts: true,
+        // Promotional
+        specialOffers: true,
+        venueMatches: true,
+        seasonalPromotions: true,
+        // Venue Updates
+        venuePolicyChanges: true,
+        newAmenities: true,
+        maintenanceNotifications: true,
+        // Reviews
+        newReviews: true
       }
     });
   } catch (err) {
