@@ -32,6 +32,39 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide your address']
   },
+  phone: {
+    type: String,
+    default: ''
+  },
+  dateOfBirth: {
+    type: String,
+    default: ''
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', 'prefer-not-to-say', ''],
+    default: ''
+  },
+  country: {
+    type: String,
+    default: 'India'
+  },
+  state: {
+    type: String,
+    default: ''
+  },
+  district: {
+    type: String,
+    default: ''
+  },
+  pincode: {
+    type: String,
+    default: ''
+  },
+  profilePicture: {
+    type: String,
+    default: ''
+  },
   isVerified: {
     type: Boolean,
     default: false
@@ -49,22 +82,41 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  notificationSettings: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {
+      // Payment Notifications
+      paymentReceived: true,
+      paymentFailed: true,
+      refundProcessed: true,
+      subscriptionRenewal: true,
+      // Booking Reminders
+      upcomingBooking: true,
+      checkinReminder: true,
+      checkoutReminder: true,
+      bookingConfirmation: true,
+      bookingRequests: true,
+      bookingStatus: true,
+      // Account & Security
+      passwordChange: true,
+      newDeviceLogin: true,
+      securityAlerts: true,
+      // Promotional
+      specialOffers: true,
+      venueMatches: true,
+      seasonalPromotions: true,
+      // Venue Updates
+      venuePolicyChanges: true,
+      newAmenities: true,
+      maintenanceNotifications: true,
+      // Reviews
+      newReviews: true
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
-  },
-  notificationSettings: {
-  email: {
-    bookingUpdates: { type: Boolean, default: true },
-    messages: { type: Boolean, default: true },
-    promotions: { type: Boolean, default: true }
-  },
-  push: {
-    bookingUpdates: { type: Boolean, default: true },
-    messages: { type: Boolean, default: true },
-    promotions: { type: Boolean, default: true }
   }
-}
 });
 
 // Encrypt password using bcrypt
