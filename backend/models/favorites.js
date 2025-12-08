@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 
-const FavoriteSchema = new mongoose.Schema({
+const favoriteSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
+    index: true
   },
   item: {
     type: mongoose.Schema.Types.ObjectId,
@@ -14,12 +15,18 @@ const FavoriteSchema = new mongoose.Schema({
   itemType: {
     type: String,
     required: true,
-    enum: ['Venue', 'Service'] // Adjust based on your models
+    enum: ['Venue', 'Service'],
+    index: true
   },
   date: {
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model('Favorite', FavoriteSchema);
+// Compound index for faster lookups
+favoriteSchema.index({ user: 1, item: 1, itemType: 1 }, { unique: true });  
+
+module.exports = mongoose.model('Favorite', favoriteSchema);
