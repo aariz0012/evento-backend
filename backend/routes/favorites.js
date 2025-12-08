@@ -24,7 +24,6 @@ router.get('/', protect, getUserFavorites);
  * @access  Private
  * @param   {string} itemId - ID of the item to favorite
  * @body    {string} type - Type of the item (Venue/Service)
- * @returns {Object} Added favorite item
  */
 router.post('/:itemId', protect, addToFavorites);
 
@@ -33,16 +32,17 @@ router.post('/:itemId', protect, addToFavorites);
  * @desc    Remove an item from favorites
  * @access  Private
  * @param   {string} itemId - ID of the item to remove
- * @returns {Object} Success message
+ * @body    {string} type - Type of the item (Venue/Service)
  */
 router.delete('/:itemId', protect, removeFromFavorites);
 
 /**
  * @route   GET /api/favorites/check/:itemId
- * @desc    Check if an item is in user's favorites
+ * @desc    Check if an item is favorited by the user
  * @access  Private
  * @param   {string} itemId - ID of the item to check
- * @returns {Object} Object with isFavorite status and favoriteId if exists
+ * @query   {string} type - Type of the item (Venue/Service)
+ * @returns {Object} { isFavorite: boolean }
  */
 router.get('/check/:itemId', protect, checkIfFavorite);
 
@@ -52,7 +52,7 @@ router.get('/check/:itemId', protect, checkIfFavorite);
  * @access  Private
  * @param   {string} itemId - ID of the item to toggle
  * @body    {string} type - Type of the item (Venue/Service)
- * @returns {Object} Object with isFavorite status and favoriteId
+ * @returns {Object} { isFavorite: boolean, favoriteId: string, item: Object }
  */
 router.post('/toggle/:itemId', protect, toggleFavorite);
 
