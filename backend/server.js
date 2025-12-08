@@ -151,23 +151,44 @@ process.on('SIGTERM', () => {
 
 // === Server startup with port check ===
 let server;
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8080;  // Changed from 3000 to 8080
+const HOST = '0.0.0.0';
+
+console.log(`Starting server on port: ${PORT}`);
 
 function startServer() {
-  // Check if port is free before starting
   const tester = net.createServer()
     .once('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use. Please stop the other process or use a different port.`);
+        console.error(`❌ Port ${PORT} is already in use.`);
+        console.error('Please check for other running Node.js processes or wait a few moments and try again.');
         process.exit(1);
       }
+      console.error('Server error:', err);
+      process.exit(1);
     })
     .once('listening', () => {
-      tester.close();
-      server = app.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Server running on port ${PORT}`);
-        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      tester.close(() => {
+        server = app.listen(PORT, HOST, () => {
+          console.log(`🚀 Server running at http://${HOST}:${PORT}`);
+          console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+          console.log('🔄 Process ID:', process.pid);
+        });
+
+        // Handle server errors
+        server.on('error', (error) => {
+          if (error.code === 'EADDRINUSE') {
+            console.error(`❌ Port ${PORT} is already in use by another process.`);
+          } else {
+            console.error('Server error:', error);
+          }
+          process.exit(1);
+        });
       });
     })
-    .listen(PORT);
+    .on('error', (err) => {
+      console.error('Port tester error:', err);
+      process.exit(1);
+    })
+    .listen(PORT, HOST);
 }
