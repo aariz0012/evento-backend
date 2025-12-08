@@ -9,12 +9,23 @@ const Favorite = require('../models/Favorite');
 router.get('/', auth, async (req, res) => {
   try {
     const favorites = await Favorite.find({ user: req.user.id })
-      .populate('item')
+      .populate({
+        path: 'item',
+        select: 'name description price images location rating', // Add other fields you need
+        model: 'Venue' // or dynamically set based on itemType
+      })
       .sort({ date: -1 });
-    res.json(favorites);
+      
+    // Return data in the expected format
+    res.json(favorites.map(fav => ({
+      ...fav.item._doc, // Spread the populated item data
+      _id: fav._id,
+      isFavorited: true,
+      type: fav.itemType
+    })));
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Error in GET /api/favorites:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
