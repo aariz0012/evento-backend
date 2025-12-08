@@ -181,6 +181,7 @@ exports.toggleFavorite = async (req, res, next) => {
       throw new BadRequestError('Item ID and type are required');
     }
 
+    // Find existing favorite
     const existing = await Favorite.findOne({
       user: userId,
       item: itemId
@@ -190,9 +191,11 @@ exports.toggleFavorite = async (req, res, next) => {
     let isFavorite;
 
     if (existing) {
+      // Remove from favorites
       await Favorite.findByIdAndDelete(existing._id);
       isFavorite = false;
     } else {
+      // Add to favorites
       favorite = await Favorite.create({
         user: userId,
         item: itemId,
@@ -201,14 +204,25 @@ exports.toggleFavorite = async (req, res, next) => {
       isFavorite = true;
     }
 
+    // Get the item details for the response
+    let itemDetails = null;
+    if (isFavorite) {
+      const model = mongoose.model(type);
+      itemDetails = await model.findById(itemId)
+        .select('name description price images location rating')
+        .lean();
+    }
+
     res.json({
       success: true,
       data: {
         isFavorite,
-        favoriteId: favorite?._id
+        favoriteId: favorite?._id,
+        item: itemDetails
       }
     });
   } catch (error) {
+    console.error('Error in toggleFavorite:', error);
     next(error);
   }
 };
