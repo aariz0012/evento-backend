@@ -1,4 +1,6 @@
+// backend/models/favorites.js
 const mongoose = require('mongoose');
+const { BadRequestError } = require('../utils/errors');
 
 const favoriteSchema = new mongoose.Schema({
   user: {
@@ -23,8 +25,7 @@ const favoriteSchema = new mongoose.Schema({
   },
   date: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   }
 }, {
   timestamps: true,
@@ -32,13 +33,10 @@ const favoriteSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Compound index for faster queries when checking if an item is favorited
+// Compound index to ensure a user can only favorite an item once
 favoriteSchema.index({ user: 1, item: 1, itemType: 1 }, { unique: true });
 
-// Index for getting favorites by user and type
-favoriteSchema.index({ user: 1, itemType: 1, date: -1 });
-
-// Virtual for populating the item based on itemType
+// Virtual for populating the item details
 favoriteSchema.virtual('itemDetails', {
   ref: doc => doc.itemType,
   localField: 'item',
@@ -46,19 +44,14 @@ favoriteSchema.virtual('itemDetails', {
   justOne: true
 });
 
-// Pre-save hook to ensure data consistency
-favoriteSchema.pre('save', function(next) {
-  if (this.isNew) {
-    this.date = new Date();
-  }
-  next();
-});
-
-// Static method to check if a user has favorited an item
+// Static method to check if an item is favorited
 favoriteSchema.statics.isFavorite = async function(userId, itemId, itemType) {
-  return await this.exists({ user: userId, item: itemId, itemType });
+  if (!userId || !itemId || !itemType) {
+    throw new BadRequestError('User ID, Item ID, and Item Type are required');
+  }
+  const count = await this.countDocuments({ user: userId, item: itemId, itemType });
+  return count > 0;
 };
 
 const Favorite = mongoose.model('Favorite', favoriteSchema);
-
 module.exports = Favorite;
