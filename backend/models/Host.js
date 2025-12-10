@@ -3,20 +3,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const HostSchema = new mongoose.Schema({
+   user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   businessName: {
     type: String,
     required: [true, 'Please provide your business name'],
-    trim: true
   },
   ownerName: {
     type: String,
     required: [true, 'Please provide the owner name'],
-    trim: true
   },
   email: {
     type: String,
     required: [true, 'Please provide an email'],
-    unique: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please provide a valid email'
@@ -25,12 +27,11 @@ const HostSchema = new mongoose.Schema({
   mobileNumber: {
     type: String,
     required: [true, 'Please provide a business contact number'],
-    unique: true
   },
   password: {
     type: String,
     required: [true, 'Please provide a password'],
-    minlength: 6,
+    minlength: 8,
     select: false
   },
   hostType: {
@@ -177,7 +178,7 @@ const HostSchema = new mongoose.Schema({
     type: Number,
     min: 1,
     max: 5,
-    default: 0
+    default: 1
   },
   reviews: [{
     user: {
