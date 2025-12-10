@@ -308,48 +308,57 @@ exports.verifyOTP = async (req, res) => {
 // @desc    Login user
 // @route   POST /api/auth/login/user
 // @access  Public
-exports.loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+   exports.loginUser = async (req, res) => {
+     try {
+       const { email, password } = req.body;
 
-    // Validate email & password
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide an email and password'
-      });
-    }
+       // Validate input
+       if (!email || !password) {
+         return res.status(400).json({
+           success: false,
+           error: 'Please provide an email and password'
+         });
+       }
 
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
+       // Check if user exists
+       const user = await User.findOne({ email }).select('+password');
+       if (!user) {
+         return res.status(401).json({
+           success: false,
+           error: 'Invalid credentials'
+         });
+       }
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
+       // Check if password matches
+       const isMatch = await user.matchPassword(password);
+       if (!isMatch) {
+         return res.status(401).json({
+           success: false,
+           error: 'Invalid credentials'
+         });
+       }
 
-    // Check if password matches
-    const isMatch = await user.matchPassword(password);
+       // Generate token
+       const token = user.getSignedJwtToken();
 
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-
-    // Send token
-    sendTokenResponse(user, 200, res, false);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      error: 'Server Error'
-    });
-  }
-};
+       // Send response
+       res.status(200).json({
+         success: true,
+         token,
+         user: {
+           id: user._id,
+           email: user.email,
+           role: user.role
+         }
+       });
+     } catch (error) {
+       console.error('Login error:', error);
+       res.status(500).json({
+         success: false,
+         error: 'Server error'
+       });
+     }
+   };
 
 // @desc    Login host
 // @route   POST /api/auth/login/host
