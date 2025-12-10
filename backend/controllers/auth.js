@@ -56,9 +56,9 @@ exports.registerUser = async (req, res) => {
     // Send verification email
     await sendEmail({
       email,
-      subject: 'EventO - Email Verification',
+      subject: 'Venuity - Email Verification',
       html: `
-        <h1>Welcome to EventO!</h1>
+        <h1>Welcome to Venuity!</h1>
         <p>Thank you for registering with us. Please use the following OTP to verify your email:</p>
         <h2>${emailOTP}</h2>
         <p>This OTP is valid for 10 minutes.</p>
@@ -68,7 +68,7 @@ exports.registerUser = async (req, res) => {
     // Send verification SMS
     await sendSMS({
       to: mobileNumber,
-      body: `Your EventO verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
+      body: `Your Venuity verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
     });
 
     // Send token
@@ -182,9 +182,9 @@ exports.registerHost = async (req, res) => {
     // Send verification email
     await sendEmail({
       email,
-      subject: 'EventO - Host Registration',
+      subject: 'Venuity - Host Registration',
       html: `
-        <h1>Welcome to EventO as a Host!</h1>
+        <h1>Welcome to Venuity as a Host!</h1>
         <p>Thank you for registering as a host. Please use the following OTP to verify your email:</p>
         <h2>${emailOTP}</h2>
         <p>This OTP is valid for 10 minutes.</p>
@@ -194,7 +194,7 @@ exports.registerHost = async (req, res) => {
     // Send verification SMS
     await sendSMS({
       to: mobileNumber,
-      body: `Your EventO host verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
+      body: `Your Venuity host verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
     });
 
     // Generate JWT token
