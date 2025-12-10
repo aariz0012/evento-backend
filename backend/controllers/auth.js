@@ -118,7 +118,9 @@ exports.registerHost = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Email or mobile number already in use' 
+         error: existingUser.email === email 
+          ? 'Email already in use' 
+          : 'Mobile number already in use'
       });
     }
 
@@ -201,6 +203,15 @@ exports.registerHost = async (req, res) => {
     // Send token response
     sendTokenResponse(user, 201, res, true);
 
+     res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     console.error('Host registration error:', error);
     res.status(500).json({ 
