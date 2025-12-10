@@ -15,72 +15,70 @@ const generateOTP = () => {
 // @route   POST /api/auth/register/user
 // @access  Public
 exports.registerUser = async (req, res) => {
-  try {
-    const { fullName, email, mobileNumber, password, address } = req.body;
+     try {
+       const { fullName, email, mobileNumber, password } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { mobileNumber }] 
-    });
+       // Validate required fields
+       if (!fullName || !email || !mobileNumber || !password) {
+         return res.status(400).json({ 
+           success: false, 
+           error: 'Missing required fields' 
+         });
+       }
 
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        error: 'User with this email or mobile number already exists'
-      });
-    }
+       // Check if user already exists
+       const existingUser = await User.findOne({ 
+         $or: [{ email }, { mobileNumber }] 
+       });
 
-    // Create user
-    const user = await User.create({
-      fullName,
-      email,
-      mobileNumber,
-      password,
-      address
-    });
+       if (existingUser) {
+         return res.status(400).json({ 
+           success: false, 
+           error: existingUser.email === email 
+             ? 'Email already in use' 
+             : 'Mobile number already in use'
+         });
+       }
 
-    // Generate OTPs for verification
-    const emailOTP = generateOTP();
-    const mobileOTP = generateOTP();
+       // Hash password
+       const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Store OTPs in session or database
-    // For simplicity, we'll use a temporary approach here
-    // In production, use Redis or another session store
-    req.app.locals.verificationOTPs = req.app.locals.verificationOTPs || {};
-    req.app.locals.verificationOTPs[email] = {
-      emailOTP,
-      mobileOTP,
-      userId: user._id
-    };
+       // Create new user
+       const user = new User({
+         fullName,
+         email,
+         mobileNumber,
+         password: hashedPassword,
+         role: 'user',
+         isVerified: false,
+         emailVerified: false,
+         mobileVerified: false
+       });
 
-    // Send verification email
-    await sendEmail({
-      email,
-      subject: 'Venuity - Email Verification',
-      html: `
-        <h1>Welcome to Venuity!</h1>
-        <p>Thank you for registering with us. Please use the following OTP to verify your email:</p>
-        <h2>${emailOTP}</h2>
-        <p>This OTP is valid for 10 minutes.</p>
-      `
-    });
+       await user.save();
 
-    // Send verification SMS
-    await sendSMS({
-      to: mobileNumber,
-      body: `Your Venuity verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
-    });
+       // Generate JWT token
+       const token = user.getSignedJwtToken();
 
-    // Send token
-    sendTokenResponse(user, 201, res, false);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      error: 'Server Error'
-    });
-  }
-};
+       // Send response
+       res.status(201).json({
+         success: true,
+         token,
+         user: {
+           id: user._id,
+           email: user.email,
+           role: user.role
+         }
+       });
+     } catch (error) {
+       console.error('User registration error:', error);
+       res.status(500).json({ 
+         success: false, 
+         error: 'Server Error',
+         details: process.env.NODE_ENV === 'development' ? error.message : undefined
+       });
+     }
+   };
 
 // @desc    Register host
 // @route   POST /api/auth/register/host
