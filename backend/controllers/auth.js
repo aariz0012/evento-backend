@@ -1,8 +1,10 @@
 const User = require('../models/User');
 const Host = require('../models/Host');
+const sendTokenResponse = require('../utils/sendTokenResponse');
 const sendEmail = require('../utils/sendEmail');
 const sendSMS = require('../utils/sendSMS');
-const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt =require('jsonwebtoken');
 
 // Generate OTP
 const generateOTP = () => {
@@ -95,58 +97,92 @@ exports.registerHost = async (req, res) => {
       address,
       city,
       zipCode,
-      // Additional fields based on host type
       venueType,
       maxGuestCapacity,
       services
     } = req.body;
 
-    // Check if host already exists
-    const existingHost = await Host.findOne({ 
-      $or: [{ email }, { mobileNumber }] 
-    });
-
-    if (existingHost) {
-      return res.status(400).json({
-        success: false,
-        error: 'Host with this email or mobile number already exists'
+    // Basic validation
+    if (!businessName || !ownerName || !email || !password || !hostType || !mobileNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
       });
     }
 
-    // Create host with basic information
-    const host = await Host.create({
-      businessName,
-      ownerName,
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email }, { mobileNumber }] 
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email or mobile number already in use' 
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const user = new User({
+      fullName: ownerName, // Using ownerName as fullName for consistency
       email,
       mobileNumber,
-      password,
+      password: hashedPassword,
+      role: 'host',
+      isHost: true,
       hostType,
       address,
       city,
       zipCode,
-      venueType: hostType === 'venue' ? venueType : undefined,
-      maxGuestCapacity: hostType === 'venue' ? maxGuestCapacity : undefined,
-      services
+      isVerified: false, // Will be set to true after OTP verification
+      emailVerified: false,
+      mobileVerified: false
     });
 
     // Generate OTPs for verification
     const emailOTP = generateOTP();
     const mobileOTP = generateOTP();
 
-    // Store OTPs in session or database
+    // Store OTPs in session
     req.app.locals.verificationOTPs = req.app.locals.verificationOTPs || {};
     req.app.locals.verificationOTPs[email] = {
       emailOTP,
       mobileOTP,
-      hostId: host._id
+      userId: user._id
     };
+
+    // Save user to database
+    await user.save();
+
+    // Create host-specific document
+    const host = new Host({
+      user: user._id,
+      businessName,
+      ownerName,
+      email,
+      mobileNumber,
+      hostType,
+      address,
+      city,
+      zipCode,
+      venueType: hostType === 'venue' ? venueType : undefined,
+      maxGuestCapacity: hostType === 'venue' ? maxGuestCapacity : undefined,
+      services: services || [],
+      rating: 0, // Start with 0 rating
+      isVerified: false
+    });
+
+    await host.save();
 
     // Send verification email
     await sendEmail({
       email,
-      subject: 'EventO - Host Email Verification',
+      subject: 'EventO - Host Registration',
       html: `
-        <h1>Welcome to EventO!</h1>
+        <h1>Welcome to EventO as a Host!</h1>
         <p>Thank you for registering as a host. Please use the following OTP to verify your email:</p>
         <h2>${emailOTP}</h2>
         <p>This OTP is valid for 10 minutes.</p>
@@ -159,13 +195,18 @@ exports.registerHost = async (req, res) => {
       body: `Your EventO host verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
     });
 
-    // Send token
-    sendTokenResponse(host, 201, res, true);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      error: 'Server Error'
+    // Generate JWT token
+    const token = user.getSignedJwtToken();
+
+    // Send token response
+    sendTokenResponse(user, 201, res, true);
+
+  } catch (error) {
+    console.error('Host registration error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server Error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
