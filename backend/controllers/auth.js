@@ -173,7 +173,7 @@ exports.registerHost = async (req, res) => {
       venueType: hostType === 'venue' ? venueType : undefined,
       maxGuestCapacity: hostType === 'venue' ? maxGuestCapacity : undefined,
       services: services || [],
-      rating: 0, // Start with 0 rating
+      rating: 1, // Start with 0 rating
       isVerified: false
     });
 
