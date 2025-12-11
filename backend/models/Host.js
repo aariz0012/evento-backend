@@ -175,7 +175,7 @@ const HostSchema = new mongoose.Schema({
   },
   rating: {
     type: Number,
-    min: 1,
+    min: 0, // Allow 0 for unrated hosts, 1-5 for rated hosts
     max: 5,
     default: 0
   },
@@ -227,3 +227,4 @@ HostSchema.methods.matchPassword = async function(enteredPassword) {
 };
 
 module.exports = mongoose.model('Host', HostSchema);
+
