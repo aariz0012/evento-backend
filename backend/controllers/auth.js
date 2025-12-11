@@ -18,15 +18,6 @@ exports.registerUser = async (req, res) => {
   try {
     const { fullName, email, mobileNumber, password, address } = req.body;
 
-    // Input validation
-    if (!fullName || !email || !mobileNumber || !password || !address) {
-      console.error('Missing required fields');
-      return res.status(400).json({
-        success: false,
-        error: 'All fields are required'
-      });
-    }
-
     // Check if user already exists
     const existingUser = await User.findOne({ 
       $or: [{ email }, { mobileNumber }] 
@@ -53,6 +44,8 @@ exports.registerUser = async (req, res) => {
     const mobileOTP = generateOTP();
 
     // Store OTPs in session or database
+    // For simplicity, we'll use a temporary approach here
+    // In production, use Redis or another session store
     req.app.locals.verificationOTPs = req.app.locals.verificationOTPs || {};
     req.app.locals.verificationOTPs[email] = {
       emailOTP,
@@ -60,78 +53,31 @@ exports.registerUser = async (req, res) => {
       userId: user._id
     };
 
-    // Send verification email (wrapped in try-catch to prevent email failure from blocking registration)
-    try {
-      await sendEmail({
-        email,
-        subject: 'Venuity - Email Verification',
-        html: `
-          <h1>Welcome to Venuity!</h1>
-          <p>Thank you for registering with us. Please use the following OTP to verify your email:</p>
-          <h2>${emailOTP}</h2>
-          <p>This OTP is valid for 10 minutes.</p>
-        `
-      });
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Continue with registration even if email fails
-    }
-
-    // Send verification SMS (wrapped in try-catch to prevent SMS failure from blocking registration)
-    try {
-      await sendSMS({
-        to: mobileNumber,
-        body: `Your Venuity verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
-      });
-    } catch (smsError) {
-      console.error('Failed to send verification SMS:', smsError);
-      // Continue with registration even if SMS fails
-    }
-
-    // Generate token and send response
-    const token = user.getSignedJwtToken();
-
-    // Remove password from output
-    user.password = undefined;
-
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role
-      }
+    // Send verification email
+    await sendEmail({
+      email,
+      subject: 'Venuity - Email Verification',
+      html: `
+        <h1>Welcome to Venuity!</h1>
+        <p>Thank you for registering with us. Please use the following OTP to verify your email:</p>
+        <h2>${emailOTP}</h2>
+        <p>This OTP is valid for 10 minutes.</p>
+      `
     });
 
-  } catch (error) {
-    console.error('Registration error:', {
-      message: error.message,
-      stack: error.stack,
-      requestBody: req.body
+    // Send verification SMS
+    await sendSMS({
+      to: mobileNumber,
+      body: `Your Venuity verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
     });
-    
-    // Handle duplicate key error
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        error: 'User with this email or mobile number already exists'
-      });
-    }
 
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({
-        success: false,
-        error: messages.join(', ')
-      });
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      error: 'Server Error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    // Send token
+    sendTokenResponse(user, 201, res, false);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
     });
   }
 };
@@ -220,6 +166,7 @@ exports.registerHost = async (req, res) => {
       ownerName,
       email,
       mobileNumber,
+      password: hashedPassword, // Store the same hashed password for host login
       hostType,
       address,
       city,
@@ -227,7 +174,7 @@ exports.registerHost = async (req, res) => {
       venueType: hostType === 'venue' ? venueType : undefined,
       maxGuestCapacity: hostType === 'venue' ? maxGuestCapacity : undefined,
       services: services || [],
-      rating: 1, // Start with 0 rating
+      rating: 0, // Start with 0 rating
       isVerified: false
     });
 
@@ -364,57 +311,48 @@ exports.verifyOTP = async (req, res) => {
 // @desc    Login user
 // @route   POST /api/auth/login/user
 // @access  Public
-   exports.loginUser = async (req, res) => {
-     try {
-       const { email, password } = req.body;
+exports.loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-       // Validate input
-       if (!email || !password) {
-         return res.status(400).json({
-           success: false,
-           error: 'Please provide an email and password'
-         });
-       }
+    // Validate email & password
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide an email and password'
+      });
+    }
 
-       // Check if user exists
-       const user = await User.findOne({ email }).select('+password');
-       if (!user) {
-         return res.status(401).json({
-           success: false,
-           error: 'Invalid credentials'
-         });
-       }
+    // Check for user
+    const user = await User.findOne({ email }).select('+password');
 
-       // Check if password matches
-       const isMatch = await user.matchPassword(password);
-       if (!isMatch) {
-         return res.status(401).json({
-           success: false,
-           error: 'Invalid credentials'
-         });
-       }
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
 
-       // Generate token
-       const token = user.getSignedJwtToken();
+    // Check if password matches
+    const isMatch = await user.matchPassword(password);
 
-       // Send response
-       res.status(200).json({
-         success: true,
-         token,
-         user: {
-           id: user._id,
-           email: user.email,
-           role: user.role
-         }
-       });
-     } catch (error) {
-       console.error('Login error:', error);
-       res.status(500).json({
-         success: false,
-         error: 'Server error'
-       });
-     }
-   };
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    // Send token
+    sendTokenResponse(user, 200, res, false);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};
 
 // @desc    Login host
 // @route   POST /api/auth/login/host
