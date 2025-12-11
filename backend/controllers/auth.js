@@ -129,15 +129,15 @@ exports.registerHost = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password separately for User
+    const userHashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
+    // Create new user (user hash)
     const user = new User({
       fullName: ownerName, // Using ownerName as fullName for consistency
       email,
       mobileNumber,
-      password: hashedPassword,
+      password: userHashedPassword,
       role: 'host',
       isHost: true,
       hostType,
@@ -164,15 +164,14 @@ exports.registerHost = async (req, res) => {
     // Save user to database
     await user.save();
 
-    // Create host-specific document
-    // Note: We pass the raw password, not the hashed one, because the pre-save hook will hash it
+    // Create host-specific document with its own password (plain); pre-save hook will hash separately
     const host = new Host({
       user: user._id,
       businessName,
       ownerName,
       email,
       mobileNumber,
-      password: password, // Pass raw password - pre-save hook will hash it
+      password, // plain password; Host pre-save hook will hash independently
       hostType,
       address,
       city,
@@ -180,10 +179,9 @@ exports.registerHost = async (req, res) => {
       venueType: hostType === 'venue' ? venueType : undefined,
       maxGuestCapacity: hostType === 'venue' ? maxGuestCapacity : undefined,
       services: services || [],
-      rating: 0, // Start with 0 rating
+      rating: 0,
       isVerified: false
     });
-
     await host.save();
 
     // Send verification email (don't fail registration if email fails)
@@ -411,10 +409,13 @@ exports.loginHost = async (req, res) => {
     if (host.password) {
       try {
         isMatch = await host.matchPassword(password);
+        console.log('Host password match result:', isMatch);
       } catch (err) {
         // If matchPassword fails (e.g., password is invalid), continue to check User
-        console.log('Host password match failed, checking User...');
+        console.error('Host password match error:', err.message);
       }
+    } else {
+      console.log('Host has no password stored, checking User...');
     }
     
     // If host doesn't have password or password doesn't match, check linked User
@@ -459,12 +460,14 @@ exports.loginHost = async (req, res) => {
     }
 
     if (!isMatch) {
+      console.error('Login failed: Password does not match for email:', email);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
       });
     }
 
+    console.log('Login successful for host:', email);
     // Send token
     sendTokenResponse(host, 200, res, true);
   } catch (err) {
