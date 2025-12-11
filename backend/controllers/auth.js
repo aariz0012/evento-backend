@@ -110,17 +110,22 @@ exports.registerHost = async (req, res) => {
       });
     }
 
-    // Check if user already exists
+    // Check if user or host already exists
     const existingUser = await User.findOne({ 
       $or: [{ email }, { mobileNumber }] 
     });
 
-    if (existingUser) {
+    const existingHost = await Host.findOne({ 
+      $or: [{ email }, { mobileNumber }] 
+    });
+
+    if (existingUser || existingHost) {
+      const errorMsg = (existingUser?.email === email || existingHost?.email === email)
+        ? 'Email already in use' 
+        : 'Mobile number already in use';
       return res.status(400).json({ 
         success: false, 
-         error: existingUser.email === email 
-          ? 'Email already in use' 
-          : 'Mobile number already in use'
+        error: errorMsg
       });
     }
 
@@ -160,13 +165,14 @@ exports.registerHost = async (req, res) => {
     await user.save();
 
     // Create host-specific document
+    // Note: We pass the raw password, not the hashed one, because the pre-save hook will hash it
     const host = new Host({
       user: user._id,
       businessName,
       ownerName,
       email,
       mobileNumber,
-      password: hashedPassword, // Store the same hashed password for host login
+      password: password, // Pass raw password - pre-save hook will hash it
       hostType,
       address,
       city,
@@ -180,44 +186,64 @@ exports.registerHost = async (req, res) => {
 
     await host.save();
 
-    // Send verification email
-    await sendEmail({
-      email,
-      subject: 'Venuity - Host Registration',
-      html: `
-        <h1>Welcome to Venuity as a Host!</h1>
-        <p>Thank you for registering as a host. Please use the following OTP to verify your email:</p>
-        <h2>${emailOTP}</h2>
-        <p>This OTP is valid for 10 minutes.</p>
-      `
-    });
+    // Send verification email (don't fail registration if email fails)
+    try {
+      await sendEmail({
+        email,
+        subject: 'Venuity - Host Registration',
+        html: `
+          <h1>Welcome to Venuity as a Host!</h1>
+          <p>Thank you for registering as a host. Please use the following OTP to verify your email:</p>
+          <h2>${emailOTP}</h2>
+          <p>This OTP is valid for 10 minutes.</p>
+        `
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue with registration even if email fails
+    }
 
-    // Send verification SMS
-    await sendSMS({
-      to: mobileNumber,
-      body: `Your Venuity host verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
-    });
+    // Send verification SMS (don't fail registration if SMS fails)
+    try {
+      await sendSMS({
+        to: mobileNumber,
+        body: `Your Venuity host verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
+      });
+    } catch (smsError) {
+      console.error('Failed to send verification SMS:', smsError);
+      // Continue with registration even if SMS fails
+    }
 
-    // Generate JWT token
-    const token = user.getSignedJwtToken();
+    // Generate JWT token using host token method
+    const token = host.getSignedJwtToken();
 
-    // Send token response
-    sendTokenResponse(user, 201, res, true);
-
-     res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role
-      }
-    });
+    // Send token response with host data
+    sendTokenResponse(host, 201, res, true);
   } catch (error) {
     console.error('Host registration error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // If it's a validation error, return more specific message
+    if (error.name === 'ValidationError') {
+      const errorMessages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: errorMessages.join(', ')
+      });
+    }
+    
+    // If it's a duplicate key error (email or mobile already exists)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        success: false,
+        error: `${field} already in use`
+      });
+    }
+    
     res.status(500).json({ 
       success: false, 
-      error: 'Server Error',
+      error: 'Server Error. Please try again later.',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
