@@ -379,8 +379,58 @@ exports.loginHost = async (req, res) => {
       });
     }
 
-    // Check if password matches
-    const isMatch = await host.matchPassword(password);
+    let isMatch = false;
+    
+    // Check if host has a password and try to match it
+    if (host.password) {
+      try {
+        isMatch = await host.matchPassword(password);
+      } catch (err) {
+        // If matchPassword fails (e.g., password is invalid), continue to check User
+        console.log('Host password match failed, checking User...');
+      }
+    }
+    
+    // If host doesn't have password or password doesn't match, check linked User
+    if (!isMatch && host.user) {
+      try {
+        const user = await User.findById(host.user).select('+password');
+        if (user && user.password) {
+          // Match password against user
+          isMatch = await bcrypt.compare(password, user.password);
+          
+          // If password matches, update host with the password for future logins
+          // Use updateOne to bypass pre-save hook (password is already hashed)
+          if (isMatch) {
+            await Host.updateOne({ _id: host._id }, { $set: { password: user.password } });
+          }
+        }
+      } catch (err) {
+        console.log('Error checking linked user:', err.message);
+      }
+    }
+    
+    // Also check if User exists with same email (for hosts created before user link was added)
+    if (!isMatch) {
+      try {
+        const user = await User.findOne({ email, isHost: true, role: 'host' }).select('+password');
+        if (user && user.password) {
+          isMatch = await bcrypt.compare(password, user.password);
+          
+          // If password matches, update host with the password and link the user
+          // Use updateOne to bypass pre-save hook (password is already hashed)
+          if (isMatch) {
+            const updateData = { password: user.password };
+            if (!host.user) {
+              updateData.user = user._id;
+            }
+            await Host.updateOne({ _id: host._id }, { $set: updateData });
+          }
+        }
+      } catch (err) {
+        console.log('Error checking user by email:', err.message);
+      }
+    }
 
     if (!isMatch) {
       return res.status(401).json({
@@ -392,7 +442,7 @@ exports.loginHost = async (req, res) => {
     // Send token
     sendTokenResponse(host, 200, res, true);
   } catch (err) {
-    console.error(err);
+    console.error('Login host error:', err);
     res.status(500).json({
       success: false,
       error: 'Server Error'
