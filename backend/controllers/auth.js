@@ -397,77 +397,89 @@ exports.loginHost = async (req, res) => {
     const host = await Host.findOne({ email }).select('+password');
 
     if (!host) {
+      console.error('Login failed: Host not found for email:', email);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
       });
     }
 
+    console.log('Host found:', {
+      email: host.email,
+      hasPassword: !!host.password,
+      hasUserLink: !!host.user,
+      passwordLength: host.password ? host.password.length : 0
+    });
+
     let isMatch = false;
     
-    // Check if host has a password and try to match it
+    // Primary check: Try to match password against Host's password
     if (host.password) {
       try {
         isMatch = await host.matchPassword(password);
         console.log('Host password match result:', isMatch);
+        if (isMatch) {
+          console.log('✓ Password matched with Host password');
+        }
       } catch (err) {
-        // If matchPassword fails (e.g., password is invalid), continue to check User
-        console.error('Host password match error:', err.message);
+        console.error('Host password match error:', err.message, err.stack);
+        // Continue to fallback checks below
       }
     } else {
-      console.log('Host has no password stored, checking User...');
+      console.log('Host has no password stored, checking fallback options...');
     }
     
-    // If host doesn't have password or password doesn't match, check linked User
+    // Fallback: For backwards compatibility with hosts created before separate password hashing
+    // Check User password if Host password doesn't match and User exists
     if (!isMatch && host.user) {
       try {
         const user = await User.findById(host.user).select('+password');
         if (user && user.password) {
-          // Match password against user
+          // Match password against user's password
           isMatch = await bcrypt.compare(password, user.password);
           
-          // If password matches, update host with the password for future logins
-          // Use updateOne to bypass pre-save hook (password is already hashed)
           if (isMatch) {
-            await Host.updateOne({ _id: host._id }, { $set: { password: user.password } });
+            console.log('Password matched with User, but Host and User passwords are now separate.');
+            console.log('Consider resetting Host password to use Host login in the future.');
+            // Note: We don't update Host password anymore since they should be separate
+            // The host should reset their password if they want to use Host-specific login
           }
         }
       } catch (err) {
-        console.log('Error checking linked user:', err.message);
+        console.error('Error checking linked user:', err.message);
       }
     }
     
-    // Also check if User exists with same email (for hosts created before user link was added)
+    // Last fallback: Check if User exists with same email (for very old hosts without user link)
     if (!isMatch) {
       try {
         const user = await User.findOne({ email, isHost: true, role: 'host' }).select('+password');
         if (user && user.password) {
           isMatch = await bcrypt.compare(password, user.password);
           
-          // If password matches, update host with the password and link the user
-          // Use updateOne to bypass pre-save hook (password is already hashed)
           if (isMatch) {
-            const updateData = { password: user.password };
+            console.log('Password matched with User by email, but Host and User passwords are now separate.');
+            // Link the user if not already linked
             if (!host.user) {
-              updateData.user = user._id;
+              await Host.updateOne({ _id: host._id }, { $set: { user: user._id } });
             }
-            await Host.updateOne({ _id: host._id }, { $set: updateData });
           }
         }
       } catch (err) {
-        console.log('Error checking user by email:', err.message);
+        console.error('Error checking user by email:', err.message);
       }
     }
 
     if (!isMatch) {
       console.error('Login failed: Password does not match for email:', email);
+      console.error('Attempted all password checks: Host password, linked User, User by email');
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials'
+        error: 'Invalid email or password. Please check your credentials and try again.'
       });
     }
 
-    console.log('Login successful for host:', email);
+    console.log('✓ Login successful for host:', email);
     // Send token
     sendTokenResponse(host, 200, res, true);
   } catch (err) {
