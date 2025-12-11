@@ -15,70 +15,126 @@ const generateOTP = () => {
 // @route   POST /api/auth/register/user
 // @access  Public
 exports.registerUser = async (req, res) => {
-     try {
-       const { fullName, email, mobileNumber, password } = req.body;
+  try {
+    const { fullName, email, mobileNumber, password, address } = req.body;
 
-       // Validate required fields
-       if (!fullName || !email || !mobileNumber || !password) {
-         return res.status(400).json({ 
-           success: false, 
-           error: 'Missing required fields' 
-         });
-       }
+    // Input validation
+    if (!fullName || !email || !mobileNumber || !password || !address) {
+      console.error('Missing required fields');
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required'
+      });
+    }
 
-       // Check if user already exists
-       const existingUser = await User.findOne({ 
-         $or: [{ email }, { mobileNumber }] 
-       });
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email }, { mobileNumber }] 
+    });
 
-       if (existingUser) {
-         return res.status(400).json({ 
-           success: false, 
-           error: existingUser.email === email 
-             ? 'Email already in use' 
-             : 'Mobile number already in use'
-         });
-       }
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'User with this email or mobile number already exists'
+      });
+    }
 
-       // Hash password
-       const hashedPassword = await bcrypt.hash(password, 10);
+    // Create user
+    const user = await User.create({
+      fullName,
+      email,
+      mobileNumber,
+      password,
+      address
+    });
 
-       // Create new user
-       const user = new User({
-         fullName,
-         email,
-         mobileNumber,
-         password: hashedPassword,
-         role: 'user',
-         isVerified: false,
-         emailVerified: false,
-         mobileVerified: false
-       });
+    // Generate OTPs for verification
+    const emailOTP = generateOTP();
+    const mobileOTP = generateOTP();
 
-       await user.save();
+    // Store OTPs in session or database
+    req.app.locals.verificationOTPs = req.app.locals.verificationOTPs || {};
+    req.app.locals.verificationOTPs[email] = {
+      emailOTP,
+      mobileOTP,
+      userId: user._id
+    };
 
-       // Generate JWT token
-       const token = user.getSignedJwtToken();
+    // Send verification email (wrapped in try-catch to prevent email failure from blocking registration)
+    try {
+      await sendEmail({
+        email,
+        subject: 'Venuity - Email Verification',
+        html: `
+          <h1>Welcome to Venuity!</h1>
+          <p>Thank you for registering with us. Please use the following OTP to verify your email:</p>
+          <h2>${emailOTP}</h2>
+          <p>This OTP is valid for 10 minutes.</p>
+        `
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue with registration even if email fails
+    }
 
-       // Send response
-       res.status(201).json({
-         success: true,
-         token,
-         user: {
-           id: user._id,
-           email: user.email,
-           role: user.role
-         }
-       });
-     } catch (error) {
-       console.error('User registration error:', error);
-       res.status(500).json({ 
-         success: false, 
-         error: 'Server Error',
-         details: process.env.NODE_ENV === 'development' ? error.message : undefined
-       });
-     }
-   };
+    // Send verification SMS (wrapped in try-catch to prevent SMS failure from blocking registration)
+    try {
+      await sendSMS({
+        to: mobileNumber,
+        body: `Your Venuity verification code is: ${mobileOTP}. This code is valid for 10 minutes.`
+      });
+    } catch (smsError) {
+      console.error('Failed to send verification SMS:', smsError);
+      // Continue with registration even if SMS fails
+    }
+
+    // Generate token and send response
+    const token = user.getSignedJwtToken();
+
+    // Remove password from output
+    user.password = undefined;
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Registration error:', {
+      message: error.message,
+      stack: error.stack,
+      requestBody: req.body
+    });
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'User with this email or mobile number already exists'
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      });
+    }
+
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server Error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 // @desc    Register host
 // @route   POST /api/auth/register/host
