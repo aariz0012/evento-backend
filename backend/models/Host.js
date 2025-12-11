@@ -3,22 +3,20 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const HostSchema = new mongoose.Schema({
-   user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
   businessName: {
     type: String,
     required: [true, 'Please provide your business name'],
+    trim: true
   },
   ownerName: {
     type: String,
     required: [true, 'Please provide the owner name'],
+    trim: true
   },
   email: {
     type: String,
     required: [true, 'Please provide an email'],
+    unique: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please provide a valid email'
@@ -27,11 +25,12 @@ const HostSchema = new mongoose.Schema({
   mobileNumber: {
     type: String,
     required: [true, 'Please provide a business contact number'],
+    unique: true
   },
   password: {
     type: String,
     required: [true, 'Please provide a password'],
-    minlength: 8,
+    minlength: 6,
     select: false
   },
   hostType: {
@@ -178,7 +177,7 @@ const HostSchema = new mongoose.Schema({
     type: Number,
     min: 1,
     max: 5,
-    default: 1
+    default: 0
   },
   reviews: [{
     user: {
@@ -207,11 +206,12 @@ const HostSchema = new mongoose.Schema({
 // Encrypt password using bcrypt
 HostSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
-    next();
+    return next(); // Skip hashing if password hasn't been modified
   }
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
 // Sign JWT and return
